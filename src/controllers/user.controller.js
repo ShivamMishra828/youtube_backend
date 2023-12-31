@@ -1,5 +1,5 @@
 import User from "../models/user.model.js";
-import uploadOnCloudinary from "../utils/uploadOnCloudinary.js";
+import uploadOnCloudinary from "../utils/cloudinary.js";
 
 const registerUser = async (req, res) => {
     try {
@@ -28,7 +28,9 @@ const registerUser = async (req, res) => {
 
         // Handle avatar and cover image
         const avatarLocalPath = req.files?.avatar[0]?.path;
-        const coverImageLocalPath = req.files?.coverImage[0]?.path;
+        const coverImageLocalPath = req.files?.coverImage
+            ? req.files?.coverImage[0]?.path
+            : "";
 
         if (!avatarLocalPath) {
             res.status(400).json({
