@@ -1,6 +1,24 @@
 import User from "../models/user.model.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 
+const generateAccessAndRefreshToken = async (userId) => {
+    try {
+        const user = await User.findById(userId);
+
+        const accessToken = user.generateAccessToken();
+        const refreshToken = user.generateRefreshToken();
+
+        user.refreshToken = refreshToken;
+        await user.save({ validateBeforeSave: false });
+
+        return { accessToken, refreshToken };
+    } catch (error) {
+        console.log(
+            `Error Occured while generating access and refresh token: ${error}`
+        );
+    }
+};
+
 const registerUser = async (req, res) => {
     try {
         // get data from req.body
@@ -86,4 +104,112 @@ const registerUser = async (req, res) => {
     }
 };
 
-export { registerUser };
+const loginUser = async (req, res) => {
+    try {
+        // get data from req.body
+        const { userName, email, password } = req.body;
+
+        // Validate data
+        if (!password || (!userName && !email)) {
+            res.status(400).json({
+                success: false,
+                message: "All fields are required",
+            });
+        }
+
+        // Check if user already exists
+        const user = await User.findOne({
+            $or: [{ userName, email }],
+        });
+
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        // Check if password is correct
+        const isPasswordCorrect = await user.isPasswordCorrect(password);
+
+        if (!isPasswordCorrect) {
+            res.status(401).json({
+                success: false,
+                message: "Invalid credentials",
+            });
+        }
+
+        // Generate access and refresh token
+        const { accessToken, refreshToken } =
+            await generateAccessAndRefreshToken(user._id);
+
+        // Create new user object
+        const loggedInUser = await User.findOne({ _id: user._id }).select(
+            "-password -refreshToken"
+        );
+
+        // send response
+        const options = {
+            httpOnly: true,
+            secure: true,
+        };
+
+        return res
+            .status(200)
+            .cookie("accessToken", accessToken, options)
+            .cookie("refreshToken", refreshToken, options)
+            .json({
+                success: true,
+                message: "User logged in successfully",
+                data: {
+                    user: loggedInUser,
+                    accessToken,
+                    refreshToken,
+                },
+            });
+    } catch (error) {
+        console.log(`Error Occured while logging in user: ${error}`);
+        res.status(500).json({
+            success: false,
+            message: "Something went wrong while logging in user",
+        });
+    }
+};
+
+const logoutUser = async (req, res) => {
+    try {
+        const userId = req.user._id;
+
+        await User.findByIdAndUpdate(
+            userId,
+            {
+                $set: { refreshToken: "" },
+            },
+            {
+                new: true,
+            }
+        );
+
+        const options = {
+            httpOnly: true,
+            secure: true,
+        };
+
+        return res
+            .status(200)
+            .clearCookie("accessToken", options)
+            .clearCookie("refreshToken", options)
+            .json({
+                success: true,
+                message: "User logged out successfully",
+            });
+    } catch (error) {
+        console.log(`Error Occured while logging out user: ${error}`);
+        res.status(500).json({
+            success: false,
+            message: "Something went wrong while logging out user",
+        });
+    }
+};
+
+export { registerUser, loginUser, logoutUser };
