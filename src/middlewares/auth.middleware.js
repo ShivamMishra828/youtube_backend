@@ -1,9 +1,10 @@
 import jsonwebtoken from "jsonwebtoken";
 import dotenv from "dotenv";
+import User from "../models/user.model.js";
 
 dotenv.config();
 
-export const verifyJWT = async (req, res, next) => {
+const verifyJWT = async (req, res, next) => {
     try {
         const accessToken =
             req.cookies?.accessToken ||
@@ -43,3 +44,5 @@ export const verifyJWT = async (req, res, next) => {
         });
     }
 };
+
+export default verifyJWT;

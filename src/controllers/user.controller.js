@@ -107,10 +107,10 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
     try {
         // get data from req.body
-        const { userName, email, password } = req.body;
+        const { email, password } = req.body;
 
         // Validate data
-        if (!password || (!userName && !email)) {
+        if (!password || !email) {
             res.status(400).json({
                 success: false,
                 message: "All fields are required",
@@ -118,9 +118,7 @@ const loginUser = async (req, res) => {
         }
 
         // Check if user already exists
-        const user = await User.findOne({
-            $or: [{ userName, email }],
-        });
+        const user = await User.findOne({ email });
 
         if (!user) {
             res.status(404).json({
@@ -130,9 +128,9 @@ const loginUser = async (req, res) => {
         }
 
         // Check if password is correct
-        const isPasswordCorrect = await user.isPasswordCorrect(password);
+        const isPasswordValid = await user.isPasswordCorrect(password);
 
-        if (!isPasswordCorrect) {
+        if (!isPasswordValid) {
             res.status(401).json({
                 success: false,
                 message: "Invalid credentials",
