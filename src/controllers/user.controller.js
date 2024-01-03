@@ -1,5 +1,9 @@
 import User from "../models/user.model.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const generateAccessAndRefreshToken = async (userId) => {
     try {
@@ -210,4 +214,66 @@ const logoutUser = async (req, res) => {
     }
 };
 
-export { registerUser, loginUser, logoutUser };
+const refreshAccessToken = async (req, res) => {
+    try {
+        const incomingRefreshToken =
+            req.cookie?.refreshToken || req.body?.refreshToken;
+
+        if (!incomingRefreshToken) {
+            return res.status(401).json({
+                success: false,
+                message: "Refresh Token not found",
+            });
+        }
+
+        const decodedToken = jwt.verify(
+            incomingRefreshToken,
+            process.env.REFRESH_TOKEN_SECRET
+        );
+
+        const user = await User.findById(decodedToken?._id);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        if (user?.refreshToken !== incomingRefreshToken) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid Refresh Token",
+            });
+        }
+
+        const { newAccessToken, newRefreshToken } =
+            await user.generateAccessToken(user._id);
+
+        const options = {
+            httpOnly: true,
+            secure: true,
+        };
+
+        return res
+            .cookie("accessToken", newAccessToken, options)
+            .cookie("refreshToken", newRefreshToken, options)
+            .status(200)
+            .json({
+                success: true,
+                message: "Access Token refreshed successfully",
+                data: {
+                    accessToken: newAccessToken,
+                    refreshToken: newRefreshToken,
+                },
+            });
+    } catch (error) {
+        console.log(`Error Occured while refreshing access token: ${error}`);
+        res.status(500).json({
+            success: false,
+            message: "Something went wrong while refreshing access token",
+        });
+    }
+};
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken };
