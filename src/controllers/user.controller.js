@@ -276,4 +276,212 @@ const refreshAccessToken = async (req, res) => {
     }
 };
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+const changePassword = async (req, res) => {
+    try {
+        // get data from req.body
+        const { oldPassword, newPassword, confirmPassword } = req.body;
+
+        // Validate data
+        if (!oldPassword || !newPassword || !confirmPassword) {
+            res.status(400).json({
+                success: false,
+                message: "All fields are required",
+            });
+        }
+
+        if (newPassword !== confirmPassword) {
+            res.status(400).json({
+                success: false,
+                message: "New password and confirm password should match",
+            });
+        }
+
+        const userId = req.user?._id;
+
+        const user = await User.findById({ _id: userId });
+
+        const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+
+        if (!isPasswordCorrect) {
+            res.status(401).json({
+                success: false,
+                message: "Invalid credentials",
+            });
+        }
+
+        user.password = newPassword;
+
+        await user.save({ validateBeforeSave: false });
+
+        return res.status(200).json({
+            success: true,
+            message: "Password changed successfully",
+        });
+    } catch (error) {
+        console.log(`Error Occured while changing password: ${error}`);
+        res.status(500).json({
+            success: false,
+            message: "Something went wrong while changing password",
+        });
+    }
+};
+
+const getCurrentUser = async (req, res) => {
+    try {
+        res.status(200).json({
+            success: true,
+            message: "Current user fetched successfully",
+            data: req.user,
+        });
+    } catch (error) {
+        console.log(`Error Occured while getting current user: ${error}`);
+        res.status(500).json({
+            success: false,
+            message: "Something went wrong while getting current user",
+        });
+    }
+};
+
+const updateUserDetails = async (req, res) => {
+    try {
+        // get data from req.body
+        const { email, fullName } = req.body;
+
+        // Validate data
+        if (!email || !fullName) {
+            res.status(400).json({
+                success: false,
+                message: "All fields are required",
+            });
+        }
+
+        const userId = req.user?._id;
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            {
+                $set: {
+                    email,
+                    fullName,
+                },
+            },
+            { new: true }
+        ).select("-password");
+
+        res.status(200).json({
+            success: true,
+            message: "User details updated successfully",
+            data: user,
+        });
+    } catch (error) {
+        console.log(`Error Occured while updating user: ${error}`);
+        res.status(500).json({
+            success: false,
+            message: "Something went wrong while updating user",
+        });
+    }
+};
+
+const updateUserAvatar = async (req, res) => {
+    try {
+        const avatarLocalPath = req.files?.path;
+
+        if (!avatarLocalPath) {
+            res.status(400).json({
+                success: false,
+                message: "Avatar is required",
+            });
+        }
+
+        const avatar = await uploadOnCloudinary(avatarLocalPath);
+
+        if (!avatar.url) {
+            res.status(400).json({
+                success: false,
+                message: "Avatar upload failed",
+            });
+        }
+
+        const userId = req.user?._id;
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            {
+                $set: {
+                    avatar: avatar.url,
+                },
+            },
+            { new: true }
+        ).select("-password");
+
+        res.status(200).json({
+            success: true,
+            message: "User avatar updated successfully",
+            data: user,
+        });
+    } catch (error) {
+        console.log(`Error Occured while updating user avatar: ${error}`);
+        res.status(500).json({
+            success: false,
+            message: "Something went wrong while updating user avatar",
+        });
+    }
+};
+
+const updateUserCoverImage = async (req, res) => {
+    try {
+        const coverImageLocalPath = req.files?.path;
+
+        if (!coverImageLocalPath) {
+            res.status(400).json({
+                success: false,
+                message: "Cover image is required",
+            });
+        }
+
+        const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+
+        if (!coverImage.url) {
+            res.status(400).json({
+                success: false,
+                message: "Cover image upload failed",
+            });
+        }
+
+        const userId = req.user?._id;
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            {
+                $set: {
+                    coverImage: coverImage.url,
+                },
+            },
+            { new: true }
+        ).select("-password");
+
+        res.status(200).json({
+            success: true,
+            message: "User cover image updated successfully",
+            data: user,
+        });
+    } catch (error) {
+        console.log(`Error Occured while updating user cover image: ${error}`);
+        res.status(500).json({
+            success: false,
+            message: "Something went wrong while updating user cover image",
+        });
+    }
+};
+
+export {
+    registerUser,
+    loginUser,
+    logoutUser,
+    refreshAccessToken,
+    changePassword,
+    getCurrentUser,
+    updateUserDetails,
+    updateUserAvatar,
+    updateUserCoverImage,
+};
