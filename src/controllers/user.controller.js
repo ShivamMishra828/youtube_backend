@@ -474,6 +474,90 @@ const updateUserCoverImage = async (req, res) => {
     }
 };
 
+const getUserChannelProfile = async (req, res) => {
+    try {
+        const { userName } = req.params;
+
+        if (!userName?.trim()) {
+            res.status(400).json({
+                success: false,
+                message: "User name is required",
+            });
+        }
+
+        const channel = await User.aggregate([
+            {
+                $match: {
+                    userName: userName?.toLowerCase(),
+                },
+                $lookup: {
+                    from: "subscriptions",
+                    localField: "_id",
+                    foreignField: "channel",
+                    as: "subscribers",
+                },
+            },
+            {
+                $lookup: {
+                    from: "subscriptions",
+                    localField: "_id",
+                    foreignField: "subscriber",
+                    as: "subscribedTo",
+                },
+            },
+            {
+                $addFields: {
+                    subscribersCount: { $size: "$subscribers" },
+                    subscribedToCount: { $size: "$subscribedTo" },
+                    isSubscribed: {
+                        $cond: {
+                            if: {
+                                $in: [req.user?._id, "$subscribers.subscriber"],
+                                then: true,
+                                else: false,
+                            },
+                        },
+                    },
+                },
+            },
+            {
+                $project: {
+                    fullName: 1,
+                    userName: 1,
+                    avatar: 1,
+                    coverImage: 1,
+                    subscribersCount: 1,
+                    subscribedToCount: 1,
+                    isSubscribed: 1,
+                },
+            },
+        ]);
+
+        console.log(`Aggregated Data Channel: ${channel}`);
+
+        if (!channel) {
+            res.status(404).json({
+                success: false,
+                message: "Channel not found",
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "User channel profile fetched successfully",
+            data: channel[0],
+        });
+    } catch (error) {
+        console.log(
+            `Error Occured while getting user channel profile: ${error}`
+        );
+        res.status(500).json({
+            success: false,
+            message: "Something went wrong while getting user channel profile",
+        });
+    }
+};
+
 export {
     registerUser,
     loginUser,
@@ -484,4 +568,5 @@ export {
     updateUserDetails,
     updateUserAvatar,
     updateUserCoverImage,
+    getUserChannelProfile,
 };
